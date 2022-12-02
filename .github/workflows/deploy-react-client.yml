@@ -1,0 +1,26 @@
+name: deploy-react-client
+
+run-name: Deploy to production by @${{ github.actor }}
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    env:
+      SSH_PRIVATE_KEY: ${{secrets.SSH_PRIVATE_KEY}}
+    steps:
+    - uses: actions/checkout@main
+    - name: Use Node.js 16.18.1
+      uses: actions/setup-node@main
+      working-directory: client
+      with:
+        node-version: '16.18.1'
+        cache: 'npm'
+    - name: Install, build, and test
+      working-directory: client
+      run: |
+        npm install
+        npm test

@@ -1,0 +1,21 @@
+// Merge the maps
+$theme-colors: (
+  "red": #FF4D4D,
+  "pink": #d50066,
+  "purple": #6f42c1,
+  "primary": #0d6efd,
+  "info": #0dcaf0,
+  "teal": #6ecb63,
+  "pink-light": #fdeaf1,
+  "white": #ffffff,
+  "black": #000,
+  "warning": #ffc107,
+  "danger": #dc3545,
+  "cyan": #00ade8,
+  "success": #198754,
+  "light": #f8f9fa,
+  "secondary": #6c757d,
+  "dark": #212529,
+);
+
+@import "~bootstrap/scss/bootstrap.scss";

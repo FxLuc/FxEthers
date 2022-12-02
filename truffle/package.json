@@ -1,0 +1,24 @@
+{
+  "name": "truffle",
+  "version": "1.0.0",
+  "description": "Truffle project with SimpleStorage contract",
+  "main": "truffle-config.js",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.8.0",
+    "@truffle/hdwallet-provider": "^2.0.10",
+    "ganache-cli": "^6.12.2",
+    "truffle-plugin-verify": "^0.6.0"
+  },
+  "scripts": {
+    "test": "truffle test",
+    "fuji": "ganache --fork https://api.avax-test.network/ext/bc/C/rpc --accounts 2 --defaultBalanceEther 100000 --port 8545"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "chai-bn": "^0.3.1",
+    "dotenv": "^16.0.3"
+  }
+}
