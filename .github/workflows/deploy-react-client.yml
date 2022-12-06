@@ -23,11 +23,27 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Test
-        run: npm test
-        env:
-            CI: true
+        run: CI=true npm test
       - name: Generate build
-          run: npm run build
+        run: npm run build
+      - name: Share artifact inside workflow
+        uses: actions/upload-artifact@v1
+        with:
+          name: react-client-build
+          path: client/build
+
+  deploy:
+    runs-on: ubuntu-20.04
+    environment: secrets
+    defaults:
+      run:
+        working-directory: 'client'
+    needs: build
+    steps:
+      - name: Get artifact
+        uses: actions/download-artifact@v1
+        with:
+          name: react-client-build
       - name: Deploy React client app
         uses: appleboy/ssh-action@v0.1.2
         with:
