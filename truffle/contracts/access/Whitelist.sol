@@ -1,33 +1,23 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity ^0.8.0;
 
-import "./ControlTower.sol";
+abstract contract Whitelist {
+    mapping(address => bool) public whitelisting;
 
-contract Whitelist {
-    ControlTower public immutable controlTower;
+    event AddToWhitelist(address indexed account);
+    event RemoveFromWhitelist(address indexed account);
 
-    mapping(address => bool) whitelisted;
-
-    event Registered(address indexed account);
-    event Unregistered(address indexed account);
-
-    constructor (ControlTower _controlTower) {
-        controlTower = _controlTower;
+    function isInWhitelist(address account) public view returns (bool) {
+        return whitelisting[account];
     }
 
-    function register(address account) external {
-        controlTower.onlyOperator();
-        whitelisted[account] = true;
-        emit Registered(account);
+    function _addToWhitelist(address account) internal virtual {
+        whitelisting[account] = true;
+        emit AddToWhitelist(account);
     }
 
-    function unregister(address account) external {
-        controlTower.onlyOperator();
-        whitelisted[account] = false;
-        emit Unregistered(account);
-    }
-
-    function isRegister(address account) external view returns(bool){
-        return whitelisted[account];
+    function _removeFromWhitelist(address account) internal virtual {
+        whitelisting[account] = false;
+        emit RemoveFromWhitelist(account);
     }
 }

@@ -22,12 +22,12 @@ contract FxNFT is ERC721 {
     }
 
     function setBaseURI(string calldata _baseUri) external {
-        controlTower.onlyModerator();
+        controlTower.onlyModerator(msg.sender);
         baseUri = _baseUri;
     }
 
     function burn(uint tokenId) external {
-        controlTower.onlyModerator();
+        controlTower.onlyModerator(msg.sender);
         _burn(tokenId);
     }
 

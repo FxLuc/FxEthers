@@ -16,11 +16,11 @@ contract FxEthersToken is ERC20 {
     ) ERC20("FxEthers Token", "FETH") {
         controlTower = _controlTower;
         treasury = _treasury;
-        _mint(_treasury, initialSupply * 10 ** decimals());
+        _mint(_treasury, initialSupply);
     }
 
     function mint(uint amount) external {
-        controlTower.onlyTreasurer();
+        controlTower.onlyTreasurer(msg.sender);
         _mint(treasury, amount);
     }
 }

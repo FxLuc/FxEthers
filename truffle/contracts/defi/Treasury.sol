@@ -2,28 +2,29 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./access/ControlTower.sol";
+import "../access/ControlTower.sol";
 
 contract Treasury {
-    ControlTower public controlTower;
+    ControlTower public immutable controlTower;
 
     constructor(ControlTower _controlTower) {
         controlTower = _controlTower;
     }
 
+    receive() external payable {}
+
     function transfer(address payable to, uint amount) external {
-        controlTower.onlyTreasurer();
+        controlTower.onlyTreasurer(msg.sender);
         to.transfer(amount);
     }
 
     function transfer(IERC20 token, address to, uint amount) external {
-        controlTower.onlyTreasurer();
+        controlTower.onlyTreasurer(msg.sender);
         token.transfer(to, amount);
     }
 
     function approve(IERC20 token, address spender, uint amount) external {
-        controlTower.onlyTreasurer();
+        controlTower.onlyTreasurer(msg.sender);
         token.approve(spender, amount);
     }
-
 }

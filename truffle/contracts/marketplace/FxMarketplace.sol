@@ -155,13 +155,13 @@ contract FxMarketplace is Pausable {
 
     function setServiceFeePercent(uint percent) external {
         require(percent < PERCENTAGE, "FxMarketplace: FEE_TOO_HIGH");
-        controlTower.onlyTreasurer();
+        controlTower.onlyTreasurer(msg.sender);
         serviceFeePercent = percent;
     }
 
     function setReimbursementFeePercent(uint percent) external {
         require(percent < PERCENTAGE, "FxMarketplace: FEE_TOO_HIGH");
-        controlTower.onlyTreasurer();
+        controlTower.onlyTreasurer(msg.sender);
         reimbursementFeePercent = percent;
     }
 }
