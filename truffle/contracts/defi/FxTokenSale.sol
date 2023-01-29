@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "../access/ControlTower.sol";
+import "../accesses/ControlTower.sol";
 
 /**
  * @title FxTokenSale
@@ -81,7 +81,7 @@ contract FxTokenSale is Pausable, ReentrancyGuard {
     }
 
     function setRate(uint _rate) external whenPaused {
-        controlTower.onlyTreasurer(msg.sender);
+        controlTower.onlyTreasurer(_msgSender());
         rate = _rate;
     }
 

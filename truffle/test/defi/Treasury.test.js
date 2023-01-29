@@ -2,7 +2,6 @@
 // truffle test ./test/defi/Treasury.test.js --network development --compile-none --migrations_directory migrations_null
 
 const { assert } = require('chai')
-const truffleAssert = require('truffle-assertions')
 const toBN = (number) => new web3.utils.toBN(number)
 const parseEther = (number) => new web3.utils.toWei(toBN(number), 'ether')
 

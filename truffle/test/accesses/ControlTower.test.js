@@ -1,7 +1,7 @@
 // ganache-cli --fork https://api.avax-test.network/ext/bc/C/rpc -a 10 -l 80000000 -e 1000000 -b 0 --miner.timestampIncrement=0
-// truffle test ./test/access/ControlTower.test.js --network development --compile-none --migrations_directory migrations_null
+// truffle test ./test/accesses/ControlTower.test.js --network development --compile-none --migrations_directory migrations_null
 const { assert } = require('chai')
-const truffleAssert = require('truffle-assertions')
+const { reverts } = require('truffle-assertions')
 
 contract('ControlTower.test', async (accounts) => {
   const [accountOwner, account1, account2] = accounts
@@ -58,7 +58,7 @@ contract('ControlTower.test', async (accounts) => {
     const defaultAdminRole = await this.ControlTowerInstance.DEFAULT_ADMIN_ROLE()
     const operatorRole = await this.ControlTowerInstance.OPERATOR_ROLE()
     const revertMessageExpect = `AccessControl: account ${account2.toLowerCase()} is missing role ${defaultAdminRole.toString()}`
-    await truffleAssert.reverts(
+    await reverts(
       this.ControlTowerInstance.grantRole(operatorRole, account2, { from: account2 }),
       revertMessageExpect
     )

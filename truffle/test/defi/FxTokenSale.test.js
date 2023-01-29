@@ -2,7 +2,8 @@
 // truffle test ./test/defi/FxTokenSale.test.js --network development --compile-none --migrations_directory migrations_null
 
 const { assert } = require('chai')
-const truffleAssert = require('truffle-assertions')
+const { reverts } = require('truffle-assertions')
+
 const toBN = (number) => new web3.utils.toBN(number)
 const parseEther = (number) => new web3.utils.toWei(toBN(number), 'ether')
 
@@ -95,7 +96,7 @@ contract('FxTokenSale.test', async (accounts) => {
 
   it('Should be revert when trying to buy tokens from account not in whitelist', async () => {
     const amountIn = parseEther(1)
-    await truffleAssert.reverts(
+    await reverts(
       this.FxTokenSaleInstance.buyTokens(this.account1, { from: this.account1, value: amountIn }),
       "ControlTower: WHITELIST_ONLY",
     )
@@ -143,7 +144,7 @@ contract('FxTokenSale.test', async (accounts) => {
     const rate = await this.FxTokenSaleInstance.rate()
     const MULTIPLIER = parseEther(1)
     const amountIn = toBN(available).mul(MULTIPLIER).div(rate).add(toBN(1))
-    await truffleAssert.reverts(
+    await reverts(
       this.FxTokenSaleInstance.buyTokens(this.account1, { value: amountIn }),
       "ERC20: insufficient allowance",
     )

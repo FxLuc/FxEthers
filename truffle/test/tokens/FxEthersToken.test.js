@@ -1,8 +1,9 @@
 // ganache-cli --fork https://api.avax-test.network/ext/bc/C/rpc -a 10 -l 80000000 -e 1000000 -b 0 --miner.timestampIncrement=0
-// truffle test ./test/defi/FxEthersToken.test.js --network development --compile-none --migrations_directory migrations_null
+// truffle test ./test/tokens/FxEthersToken.test.js --network development --compile-none --migrations_directory migrations_null
 
 const { assert } = require('chai')
-const truffleAssert = require('truffle-assertions')
+const { reverts } = require('truffle-assertions')
+
 const toBN = (number) => new web3.utils.toBN(number)
 const parseEther = (number) => new web3.utils.toWei(toBN(number), 'ether')
 
@@ -56,7 +57,7 @@ contract('FxEthersToken.test', async (accounts) => {
     const decimals = await this.FxEthersTokenInstance.decimals()
 
     assert.equal(name, 'FxEthers Token', 'FxEthers does not have name correctly')
-    assert.equal(symbol, 'FETH', 'FxEthers does not have symbol correctly')
+    assert.equal(symbol, 'FxETH', 'FxEthers does not have symbol correctly')
     assert.equal(decimals.toString(), '18', 'FxEthers does not have decimals correctly')
   })
 
@@ -147,13 +148,13 @@ contract('FxEthersToken.test', async (accounts) => {
 
   it('Should be revert when trying to mint tokens by account not has role Treasury', async () => {
     const amountIn = parseEther('1')
-    await truffleAssert.reverts(this.FxEthersTokenInstance.mint(amountIn, { from: this.account1 }), "ControlTower: TREASURER_ONLY")
+    await reverts(this.FxEthersTokenInstance.mint(amountIn, { from: this.account1 }), "ControlTower: TREASURER_ONLY")
   })
 
   it('Should be revert when trying to transfer more than balance', async () => {
     const balanceOfOwner = await this.FxEthersTokenInstance.balanceOf(this.accountOwner)
     const amountTransfer = toBN(balanceOfOwner).add(toBN(1))
-    await truffleAssert.reverts(this.FxEthersTokenInstance.transfer(this.FxEthersTokenInstance.address, amountTransfer), "ERC20: transfer amount exceeds balance")
+    await reverts(this.FxEthersTokenInstance.transfer(this.FxEthersTokenInstance.address, amountTransfer), "ERC20: transfer amount exceeds balance")
   })
 
 })
