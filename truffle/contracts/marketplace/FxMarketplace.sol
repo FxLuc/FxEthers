@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "../access/ControlTower.sol";
 
 contract FxMarketplace is Pausable {
@@ -21,11 +20,15 @@ contract FxMarketplace is Pausable {
         uint lastPrice;
     }
 
-    Counters.Counter private _listedIdCounter;
+    enum ItemState {
+        Created,
+        Sold,
+        Delivered,
+        Cancelled
+    }
+
     ControlTower public immutable controlTower;
-
     address public immutable treasury;
-
     uint public constant PERCENTAGE = 10000; // x100 percent precision
     uint public serviceFeePercent;
     uint public reimbursementFeePercent;
@@ -33,12 +36,25 @@ contract FxMarketplace is Pausable {
     mapping(address => bool) public isPaymentTokens;
     mapping(address => mapping(uint => ListedItem)) public listed;
 
-    enum ItemState {
-        Created,
-        Sold,
-        Delivered,
-        Cancelled
-    }
+    event ListForSale(
+        address nft,
+        uint nftId,
+        uint64 startTime,
+        uint64 endTime,
+        address paymentToken,
+        uint startPrice
+    );
+
+    event MakeAnOffer(
+        address paymentToken,
+        address nft,
+        uint nftId,
+        uint amountOffer
+    );
+
+    event TakeOwnItem(address nft, uint nftId, address to);
+    event ServiceFeePercentChange(uint oldFee, uint newFee);
+    event ReimbursementFeeChange(uint oldFee, uint newFee);
 
     constructor(address _treasury, ControlTower _controlTower) {
         controlTower = _controlTower;
@@ -47,11 +63,11 @@ contract FxMarketplace is Pausable {
 
     function listForSale(
         address nft,
-        address paymentToken,
+        uint nftId,
         uint64 startTime,
         uint64 endTime,
-        uint startPrice,
-        uint nftId
+        address paymentToken,
+        uint startPrice
     ) external whenNotPaused {
         require(
             isPaymentTokens[paymentToken],
@@ -70,6 +86,15 @@ contract FxMarketplace is Pausable {
             endTime,
             startPrice,
             startPrice // lastPrice
+        );
+
+        emit ListForSale(
+            nft,
+            nftId,
+            startTime,
+            endTime,
+            paymentToken,
+            startPrice
         );
     }
 
@@ -101,6 +126,8 @@ contract FxMarketplace is Pausable {
         paymentToken.safeTransfer(listedItem.lastPurchaser, amountOffer);
         listedItem.lastPrice = amountOffer;
         listedItem.lastPurchaser = _msgSender();
+
+        emit MakeAnOffer(address(paymentToken), nft, nftId, amountOffer);
     }
 
     function takeOwnItem(
@@ -126,6 +153,8 @@ contract FxMarketplace is Pausable {
         );
 
         IERC721(nft).safeTransferFrom(listedItem.seller, to, nftId);
+
+        emit TakeOwnItem(nft, nftId, to);
     }
 
     function cancelListed(address nft, uint nftId) external {
@@ -156,12 +185,14 @@ contract FxMarketplace is Pausable {
     function setServiceFeePercent(uint percent) external {
         require(percent < PERCENTAGE, "FxMarketplace: FEE_TOO_HIGH");
         controlTower.onlyTreasurer(msg.sender);
+        emit ServiceFeePercentChange(serviceFeePercent, percent);
         serviceFeePercent = percent;
     }
 
     function setReimbursementFeePercent(uint percent) external {
         require(percent < PERCENTAGE, "FxMarketplace: FEE_TOO_HIGH");
         controlTower.onlyTreasurer(msg.sender);
+        emit ReimbursementFeeChange(reimbursementFeePercent, percent);
         reimbursementFeePercent = percent;
     }
 }
