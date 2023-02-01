@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "../accesses/ControlTower.sol";
+import "../access/ControlTower.sol";
 
 contract FxEthersToken is ERC20 {
     ControlTower public immutable controlTower;

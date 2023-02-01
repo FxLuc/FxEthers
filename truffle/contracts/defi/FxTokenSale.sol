@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "../accesses/ControlTower.sol";
+import "../access/ControlTower.sol";
 
 /**
  * @title FxTokenSale
@@ -80,6 +80,12 @@ contract FxTokenSale is Pausable, ReentrancyGuard {
         buyTokens(_msgSender());
     }
 
+    /**
+     * @dev The rate is the conversion between wei and the smallest and indivisible
+     * token unit. So, if you are using a rate of 1e18 with a ERC20Detailed token
+     * with 18 decimals called TOK, 1 wei will give you 1 unit, or 1e-18 TOK.
+     * @param _rate Number of token units a buyer gets per MULTIPLIER
+     */
     function setRate(uint _rate) external whenPaused {
         controlTower.onlyTreasurer(_msgSender());
         rate = _rate;

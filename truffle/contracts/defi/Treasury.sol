@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
-import "../accesses/ControlTower.sol";
+import "../access/ControlTower.sol";
 
 contract Treasury is Context {
     ControlTower public immutable controlTower;

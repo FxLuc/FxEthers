@@ -1,5 +1,5 @@
 // ganache-cli --fork https://api.avax-test.network/ext/bc/C/rpc -a 10 -l 80000000 -e 1000000 -b 0 --miner.timestampIncrement=0
-// truffle test ./test/accesses/ControlTower.test.js --network development --compile-none --migrations_directory migrations_null
+// truffle test ./test/access/ControlTower.test.js --network development --compile-none --migrations_directory migrations_null
 const { assert } = require('chai')
 const { reverts } = require('truffle-assertions')
 

@@ -26,21 +26,6 @@ contract('FxNFT.test', async (accounts) => {
     )
   })
 
-  // it('Should all token in Treasury after deploy', async () => {
-  //   const totalSupply = await this.FxNFTInstance.totalSupply()
-  //   const balanceOfTreasury = await this.FxNFTInstance.balanceOf(this.TreasuryInstance.address)
-  //   assert.equal(
-  //     totalSupply.toString(),
-  //     this.baseUri.toString(),
-  //     'Should mint an amount equal the amount when init supply'
-  //   )
-  //   assert.equal(
-  //     totalSupply.toString(),
-  //     balanceOfTreasury.toString(),
-  //     'All token does not in Treasury exactly'
-  //   )
-  // })
-
   it('Should not have any tokens in account owner', async () => {
     const balanceOfOwner = await this.FxNFTInstance.balanceOf(this.accountOwner)
     assert.equal(
@@ -57,8 +42,8 @@ contract('FxNFT.test', async (accounts) => {
     assert.equal(symbol, 'FxNFT', 'FxNFT does not have symbol correctly')
   })
 
-  
-  it('Should be able to mint tokens by role Treasury', async () => {
+
+  it('Should be able to mint tokens', async () => {
     const balanceOfAccountBefore = await this.FxNFTInstance.balanceOf(this.accountOwner)
     await this.FxNFTInstance.mint()
     const balanceOfAccountAfter = await this.FxNFTInstance.balanceOf(this.accountOwner)
@@ -88,7 +73,7 @@ contract('FxNFT.test', async (accounts) => {
     const balanceOfOtherAccBefore = await this.FxNFTInstance.balanceOf(this.account1)
     const currentTokenId = await this.FxNFTInstance.currentTokenId()
     const tokenId = currentTokenId.sub(toBN(1))
-  
+
     await this.FxNFTInstance.transferFrom(this.accountOwner, this.account1, tokenId)
 
     const ownerOfTokenId = await this.FxNFTInstance.ownerOf(tokenId)
@@ -114,41 +99,35 @@ contract('FxNFT.test', async (accounts) => {
     )
   })
 
-  // it('Should have Control Tower address', async () => {
-  //   const controlTower = await this.FxNFTInstance.controlTower()
-  //   assert.equal(
-  //     controlTower.toString(),
-  //     this.ControlTowerInstance.address,
-  //     'TokenSale does not have Control Tower address exactly'
-  //   )
-  // })
+  it('Should be able to burn tokens by role Treasury', async () => {
+    await this.FxNFTInstance.mint(this.account1)
+    const currentTokenId = await this.FxNFTInstance.currentTokenId()
+    const tokenId = currentTokenId.sub(toBN(1))
+    const ownerOfTokenId = await this.FxNFTInstance.ownerOf(tokenId)
+    const balanceOfAccountBefore = await this.FxNFTInstance.balanceOf(ownerOfTokenId)
+    await this.FxNFTInstance.burn(tokenId)
+    const balanceOfAccountAfter = await this.FxNFTInstance.balanceOf(ownerOfTokenId)
+    assert.equal(balanceOfAccountBefore.sub(balanceOfAccountAfter).toString(), toBN(1).toString())
+  })
 
-  // it('Should be able to approve token to another account', async () => {
-  //   const amountApprove = parseEther('1')
-  //   const allowanceOfAccountBefore = await this.FxNFTInstance.allowance(this.accountOwner, this.account1)
-  //   await this.FxNFTInstance.approve(this.account1, amountApprove)
-  //   const allowanceOfAccountAfter = await this.FxNFTInstance.allowance(this.accountOwner, this.account1)
+  it('Should be revert when trying to burn tokens by role not Treasury', async () => {
+    await this.FxNFTInstance.mint(this.account1)
+    const currentTokenId = await this.FxNFTInstance.currentTokenId()
+    const tokenId = currentTokenId.sub(toBN(1))
+    await reverts(this.FxNFTInstance.burn(tokenId, { from: this.account1 }))
+  })
 
-  //   assert.isTrue(
-  //     allowanceOfAccountAfter.gt(allowanceOfAccountBefore),
-  //     'Account owner does not have allowance exactly after approve'
-  //   )
-  //   assert.equal(
-  //     amountApprove.toString(),
-  //     allowanceOfAccountAfter.toString(),
-  //     'FxNFT does not approve a amount exactly'
-  //   )
-  // })
+  it('Should be able to approve token to another account', async () => {
+    await this.FxNFTInstance.mint(this.account1)
+    const currentTokenId = await this.FxNFTInstance.currentTokenId()
+    const tokenId = currentTokenId.sub(toBN(1))
+    await this.FxNFTInstance.approve(this.accountOwner, tokenId, { from: this.account1 })
+    const approvedOfTokenIdAfter = await this.FxNFTInstance.getApproved(tokenId)
 
-  // it('Should be revert when trying to mint tokens by account not has role Treasury', async () => {
-  //   const amountIn = parseEther('1')
-  //   await reverts(this.FxNFTInstance.mint(amountIn, { from: this.account1 }), "ControlTower: TREASURER_ONLY")
-  // })
-
-  // it('Should be revert when trying to transfer more than balance', async () => {
-  //   const balanceOfOwner = await this.FxNFTInstance.balanceOf(this.accountOwner)
-  //   const amountTransfer = toBN(balanceOfOwner).add(toBN(1))
-  //   await reverts(this.FxNFTInstance.transfer(this.FxNFTInstance.address, amountTransfer), "ERC20: transfer amount exceeds balance")
-  // })
-
+    assert.equal(
+      approvedOfTokenIdAfter.toString(),
+      this.accountOwner.toString(),
+      'Account owner does not have allowance of token ID exactly after approve'
+    )
+  })
 })
