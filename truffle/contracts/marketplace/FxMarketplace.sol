@@ -44,17 +44,18 @@ contract FxMarketplace is Pausable {
         address paymentToken,
         uint startPrice
     );
-
     event MakeAnOffer(
         address paymentToken,
         address nft,
         uint nftId,
         uint amountOffer
     );
-
     event TakeOwnItem(address nft, uint nftId, address to);
-    event ServiceFeePercentChange(uint oldFee, uint newFee);
+    event CancelListed(address nft, uint nftId);
     event ReimbursementFeeChange(uint oldFee, uint newFee);
+    event RescuesTokenStuck(address token, uint256 amount);
+    event ServiceFeePercentChange(uint oldFee, uint newFee);
+    event TogglePaymentTokens(address token, bool status);
 
     constructor(address _treasury, ControlTower _controlTower) {
         controlTower = _controlTower;
@@ -134,7 +135,7 @@ contract FxMarketplace is Pausable {
         address nft,
         uint nftId,
         address to
-    ) external whenNotPaused {
+    ) external {
         ListedItem memory listedItem = listed[nft][nftId];
         require(
             listedItem.endTime < block.timestamp,
@@ -160,11 +161,12 @@ contract FxMarketplace is Pausable {
     function cancelListed(address nft, uint nftId) external {
         ListedItem storage listedItem = listed[nft][nftId];
         address sender = _msgSender();
+        require(listedItem.seller == sender, "FxMarketplace: INVALID_SELLER");
         require(
-            listedItem.endTime > block.timestamp,
+            listedItem.endTime > block.timestamp ||
+                listedItem.lastPurchaser == address(0),
             "FxMarketplace: SALE_ENDED"
         );
-        require(listedItem.seller == sender, "FxMarketplace: INVALID_SELLER");
 
         uint reimbursementFee = (listedItem.lastPrice *
             reimbursementFeePercent) / PERCENTAGE;
@@ -180,6 +182,8 @@ contract FxMarketplace is Pausable {
         );
         listedItem.lastPurchaser = sender;
         listedItem.endTime = uint64(block.timestamp);
+
+        emit CancelListed(nft, nftId);
     }
 
     function setServiceFeePercent(uint percent) external {
@@ -194,5 +198,33 @@ contract FxMarketplace is Pausable {
         controlTower.onlyTreasurer(msg.sender);
         emit ReimbursementFeeChange(reimbursementFeePercent, percent);
         reimbursementFeePercent = percent;
+    }
+
+    function togglePaymentTokens(address _token) external {
+        controlTower.onlyModerator(_msgSender());
+        bool _isPaymentTokens = !isPaymentTokens[_token];
+        isPaymentTokens[_token] = _isPaymentTokens;
+        emit TogglePaymentTokens(_token, _isPaymentTokens);
+    }
+
+    function pause() public {
+        controlTower.onlyModerator(_msgSender());
+        _pause();
+    }
+
+    function unpause() external {
+        controlTower.onlyModerator(_msgSender());
+        _unpause();
+    }
+
+    /**
+     * @dev Rescues random funds stuck that the strat can't handle.
+     * @param _token address of the token to rescue.
+     */
+    function inCaseTokensGetStuck(address _token) external {
+        require(!isPaymentTokens[_token], "FxMarketplace: STUCK_TOKEN_ONLY");
+        uint256 amount = IERC20(_token).balanceOf(address(this));
+        IERC20(_token).safeTransfer(treasury, amount);
+        emit RescuesTokenStuck(_token, amount);
     }
 }
