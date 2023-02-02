@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
-
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -33,7 +33,7 @@ contract FxMarketplace is Pausable {
     uint public serviceFeePercent;
     uint public reimbursementFeePercent;
 
-    mapping(address => bool) public isPaymentTokens;
+    mapping(address => bool) public isPaymentToken;
     mapping(address => mapping(uint => ListedItem)) public listed;
 
     event ListForSale(
@@ -41,23 +41,25 @@ contract FxMarketplace is Pausable {
         uint nftId,
         uint64 startTime,
         uint64 endTime,
+        address seller,
         address paymentToken,
         uint startPrice
     );
     event MakeAnOffer(
-        address paymentToken,
         address nft,
         uint nftId,
-        uint amountOffer
+        address paymentToken,
+        uint amountOffer,
+        address from
     );
     event TakeOwnItem(address nft, uint nftId, address to);
     event CancelListed(address nft, uint nftId);
     event ReimbursementFeeChange(uint oldFee, uint newFee);
     event RescuesTokenStuck(address token, uint256 amount);
     event ServiceFeePercentChange(uint oldFee, uint newFee);
-    event TogglePaymentTokens(address token, bool status);
+    event AddPaymentToken(address token);
 
-    constructor(address _treasury, ControlTower _controlTower) {
+    constructor(ControlTower _controlTower, address _treasury) {
         controlTower = _controlTower;
         treasury = _treasury;
     }
@@ -70,18 +72,24 @@ contract FxMarketplace is Pausable {
         address paymentToken,
         uint startPrice
     ) external whenNotPaused {
+        address msgSender = _msgSender();
+        ListedItem memory _listedItem = listed[nft][nftId];
+
         require(
-            isPaymentTokens[paymentToken],
+            isPaymentToken[paymentToken],
             "FxMarketplace: UNACCEPTED_TOKEN"
         );
         require(
-            listed[nft][nftId].endTime < block.timestamp,
+            _listedItem.endTime < block.timestamp &&
+                _listedItem.lastPurchaser == address(0),
             "FxMarketplace: ITEM_LISTING"
         );
-        IERC721(nft).approve(address(this), nftId);
+
+        IERC721(nft).safeTransferFrom(msgSender, address(this), nftId);
+
         listed[nft][nftId] = ListedItem(
             IERC20(paymentToken),
-            _msgSender(),
+            msgSender,
             address(0),
             startTime,
             endTime,
@@ -94,48 +102,56 @@ contract FxMarketplace is Pausable {
             nftId,
             startTime,
             endTime,
+            msgSender,
             paymentToken,
             startPrice
         );
     }
 
     function makeAnOffer(
-        IERC20 paymentToken,
         address nft,
         uint nftId,
+        IERC20 paymentToken,
         uint amountOffer
     ) external whenNotPaused {
         ListedItem storage listedItem = listed[nft][nftId];
+        ListedItem memory _listedItem = listedItem;
         require(
-            listedItem.endTime >= block.timestamp,
+            _listedItem.endTime > block.timestamp,
             "FxMarketplace: SALE_ENDED"
         );
         require(
-            listedItem.lastPrice > amountOffer,
+            _listedItem.lastPrice < amountOffer,
             "FxMarketplace: OFFER_TOO_LOW"
         );
         require(
-            listedItem.paymentToken == paymentToken,
+            _listedItem.paymentToken == paymentToken,
             "FxMarketplace: UNACCEPTED_TOKEN"
         );
 
-        paymentToken.safeTransferFrom(
-            _msgSender(),
-            address(this),
-            listedItem.lastPrice
-        );
-        paymentToken.safeTransfer(listedItem.lastPurchaser, amountOffer);
-        listedItem.lastPrice = amountOffer;
-        listedItem.lastPurchaser = _msgSender();
+        address msgSender = _msgSender();
+        paymentToken.safeTransferFrom(msgSender, address(this), amountOffer);
 
-        emit MakeAnOffer(address(paymentToken), nft, nftId, amountOffer);
+        if (_listedItem.lastPurchaser != address(0)) {
+            paymentToken.safeTransfer(
+                _listedItem.lastPurchaser,
+                _listedItem.lastPrice
+            );
+        }
+
+        listedItem.lastPrice = amountOffer;
+        listedItem.lastPurchaser = msgSender;
+
+        emit MakeAnOffer(
+            nft,
+            nftId,
+            address(paymentToken),
+            amountOffer,
+            msgSender
+        );
     }
 
-    function takeOwnItem(
-        address nft,
-        uint nftId,
-        address to
-    ) external {
+    function takeOwnItem(address nft, uint nftId, address to) external {
         ListedItem memory listedItem = listed[nft][nftId];
         require(
             listedItem.endTime < block.timestamp,
@@ -153,36 +169,57 @@ contract FxMarketplace is Pausable {
             listedItem.lastPrice - serviceFee
         );
 
-        IERC721(nft).safeTransferFrom(listedItem.seller, to, nftId);
+        IERC721(nft).safeTransferFrom(address(this), to, nftId);
+
+        listed[nft][nftId] = ListedItem(
+            IERC20(address(0)),
+            address(0),
+            address(0),
+            0,
+            0,
+            0,
+            0
+        );
 
         emit TakeOwnItem(nft, nftId, to);
     }
 
     function cancelListed(address nft, uint nftId) external {
         ListedItem storage listedItem = listed[nft][nftId];
+        ListedItem memory _listedItem = listedItem;
         address sender = _msgSender();
-        require(listedItem.seller == sender, "FxMarketplace: INVALID_SELLER");
+        require(_listedItem.seller == sender, "FxMarketplace: INVALID_SELLER");
         require(
-            listedItem.endTime > block.timestamp ||
-                listedItem.lastPurchaser == address(0),
+            _listedItem.endTime > block.timestamp ||
+                _listedItem.lastPurchaser == address(0),
             "FxMarketplace: SALE_ENDED"
         );
 
-        uint reimbursementFee = (listedItem.lastPrice *
-            reimbursementFeePercent) / PERCENTAGE;
-        listedItem.paymentToken.safeTransferFrom(
-            sender,
-            address(this),
-            reimbursementFee
-        );
+        if (_listedItem.lastPurchaser != address(0)) {
+            uint reimbursementFee = (_listedItem.lastPrice *
+                reimbursementFeePercent) / PERCENTAGE;
+            _listedItem.paymentToken.safeTransferFrom(
+                sender,
+                address(this),
+                reimbursementFee
+            );
+            _listedItem.paymentToken.safeTransfer(
+                _listedItem.lastPurchaser,
+                _listedItem.lastPrice + reimbursementFee
+            );
+        }
 
-        listedItem.paymentToken.safeTransfer(
-            listedItem.lastPurchaser,
-            listedItem.lastPrice + reimbursementFee
-        );
-        listedItem.lastPurchaser = sender;
-        listedItem.endTime = uint64(block.timestamp);
+        IERC721(nft).safeTransferFrom(address(this), listedItem.seller, nftId);
 
+        listed[nft][nftId] = ListedItem(
+            IERC20(address(0)),
+            address(0),
+            address(0),
+            0,
+            0,
+            0,
+            0
+        );
         emit CancelListed(nft, nftId);
     }
 
@@ -200,11 +237,10 @@ contract FxMarketplace is Pausable {
         reimbursementFeePercent = percent;
     }
 
-    function togglePaymentTokens(address _token) external {
+    function addPaymentToken(address _token) external {
         controlTower.onlyModerator(_msgSender());
-        bool _isPaymentTokens = !isPaymentTokens[_token];
-        isPaymentTokens[_token] = _isPaymentTokens;
-        emit TogglePaymentTokens(_token, _isPaymentTokens);
+        isPaymentToken[_token] = true;
+        emit AddPaymentToken(_token);
     }
 
     function pause() public {
@@ -222,9 +258,19 @@ contract FxMarketplace is Pausable {
      * @param _token address of the token to rescue.
      */
     function inCaseTokensGetStuck(address _token) external {
-        require(!isPaymentTokens[_token], "FxMarketplace: STUCK_TOKEN_ONLY");
+        require(!isPaymentToken[_token], "FxMarketplace: STUCK_TOKEN_ONLY");
         uint256 amount = IERC20(_token).balanceOf(address(this));
         IERC20(_token).safeTransfer(treasury, amount);
         emit RescuesTokenStuck(_token, amount);
+    }
+
+    // Confirmation required for receiving ERC721 to smart contract
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
     }
 }
