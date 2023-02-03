@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+// FxEthers Contracts (last updated v1.0)
+
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/utils/Context.sol";
@@ -9,15 +11,7 @@ import "../access/ControlTower.sol";
 
 /**
  * @title FxTokenSale
- * @dev FxTokenSale is a base contract for managing a token crowdsale,
- * allowing investors to purchase tokens with ether. This contract implements
- * such functionality in its most fundamental form and can be extended to provide additional
- * functionality and/or custom behavior.
- * The external interface represents the basic interface for purchasing tokens, and conforms
- * the base architecture for crowdsales. It is *not* intended to be modified / overridden.
- * The internal interface conforms the extensible and modifiable surface of crowdsales. Override
- * the methods to add functionality. Consider using 'super' where appropriate to concatenate
- * behavior.
+ * @dev FxTokenSale is a base contract for managing a token crowdsale, allowing investors to purchase tokens with ether. 
  */
 contract FxTokenSale is Pausable, ReentrancyGuard {
     ControlTower public immutable controlTower;
@@ -108,7 +102,7 @@ contract FxTokenSale is Pausable, ReentrancyGuard {
         controlTower.onlyWhitelist(_msgSender());
 
         raised += amountIn;
-        payable(treasury).transfer(amountIn);
+        payable(treasury).transfer(address(this).balance);
         token.transferFrom(treasury, beneficiary, tokenOut);
         emit TokensPurchased(_msgSender(), beneficiary, amountIn, tokenOut);
     }

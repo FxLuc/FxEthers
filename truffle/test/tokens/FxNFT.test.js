@@ -3,10 +3,7 @@
 
 const { assert } = require('chai')
 const { reverts } = require('truffle-assertions')
-
-const toBN = (number) => new web3.utils.toBN(number)
-const parseEther = (number) => new web3.utils.toWei(toBN(number), 'ether')
-
+const { toBN, parseEther } = require('../utils/helper')
 
 contract('FxNFT.test', async (accounts) => {
   before(async () => {
@@ -22,8 +19,11 @@ contract('FxNFT.test', async (accounts) => {
     this.TreasuryInstance = await Treasury.new(this.ControlTowerInstance.address)
     this.FxNFTInstance = await FxNFT.new(
       this.ControlTowerInstance.address,  // ControlTower _controlTower
+      this.TreasuryInstance.address,      // address payable _treasury
       this.baseUri,                       // string memory _baseUri
     )
+
+    await this.FxNFTInstance.setServiceFee(parseEther('1'))
   })
 
   it('Should not have any tokens in account owner', async () => {
@@ -43,14 +43,16 @@ contract('FxNFT.test', async (accounts) => {
   })
 
 
-  it('Should be able to mint tokens', async () => {
+  it('Should be able to mint token', async () => {
     const balanceOfAccountBefore = await this.FxNFTInstance.balanceOf(this.accountOwner)
-    await this.FxNFTInstance.mint()
+    const hashedMetadata = web3.utils.soliditySha3(this.accountOwner)
+    await this.FxNFTInstance.mint(this.accountOwner, hashedMetadata)
     const balanceOfAccountAfter = await this.FxNFTInstance.balanceOf(this.accountOwner)
-    const currentTokenId = await this.FxNFTInstance.currentTokenId()
-    const tokenId = currentTokenId.sub(toBN(1))
+    const totalSupply = await this.FxNFTInstance.totalSupply()
+    const tokenId = totalSupply.sub(toBN(1))
     const ownerOfTokenId = await this.FxNFTInstance.ownerOf(tokenId)
     const baseUriOfTokenId = await this.FxNFTInstance.tokenURI(tokenId)
+    const hashedMetadataActually = await this.FxNFTInstance.hashedMetadata(tokenId)
 
     assert.isTrue(
       balanceOfAccountAfter.gt(balanceOfAccountBefore),
@@ -66,13 +68,18 @@ contract('FxNFT.test', async (accounts) => {
       this.baseUri.concat(tokenId.toString()),
       'FxNFT does not have URI exactly'
     )
+    assert.equal(
+      hashedMetadata,
+      hashedMetadataActually,
+      'FxNFT does not have hashed metadata exactly'
+    )
   })
 
   it('Should be able to transfer token to another account', async () => {
     const balanceOfOwnerBefore = await this.FxNFTInstance.balanceOf(this.accountOwner)
     const balanceOfOtherAccBefore = await this.FxNFTInstance.balanceOf(this.account1)
-    const currentTokenId = await this.FxNFTInstance.currentTokenId()
-    const tokenId = currentTokenId.sub(toBN(1))
+    const totalSupply = await this.FxNFTInstance.totalSupply()
+    const tokenId = totalSupply.sub(toBN(1))
 
     await this.FxNFTInstance.transferFrom(this.accountOwner, this.account1, tokenId)
 
@@ -99,28 +106,71 @@ contract('FxNFT.test', async (accounts) => {
     )
   })
 
-  it('Should be able to burn tokens by role Treasury', async () => {
-    await this.FxNFTInstance.mint(this.account1)
-    const currentTokenId = await this.FxNFTInstance.currentTokenId()
-    const tokenId = currentTokenId.sub(toBN(1))
+  it('Should be able to mint token by role Treasury', async () => {
+    const hashedMetadata = web3.utils.soliditySha3(this.accountOwner)
+    const balanceOfAccountBefore = await this.FxNFTInstance.balanceOf(this.account1)
+
+    await this.FxNFTInstance.mint(this.account1, hashedMetadata)
+
+    const totalSupply = await this.FxNFTInstance.totalSupply()
+    const tokenId = totalSupply.sub(toBN(1))
     const ownerOfTokenId = await this.FxNFTInstance.ownerOf(tokenId)
-    const balanceOfAccountBefore = await this.FxNFTInstance.balanceOf(ownerOfTokenId)
-    await this.FxNFTInstance.burn(tokenId)
-    const balanceOfAccountAfter = await this.FxNFTInstance.balanceOf(ownerOfTokenId)
-    assert.equal(balanceOfAccountBefore.sub(balanceOfAccountAfter).toString(), toBN(1).toString())
+    const hashedMetadataActually = await this.FxNFTInstance.hashedMetadata(tokenId)
+    const balanceOfAccountAfter = await this.FxNFTInstance.balanceOf(this.account1)
+
+    assert.equal(this.account1, ownerOfTokenId)
+    assert.equal(hashedMetadata, hashedMetadataActually)
+    assert.equal(balanceOfAccountAfter.sub(balanceOfAccountBefore).toString(), toBN(1).toString())
   })
 
-  it('Should be revert when trying to burn tokens by role not Treasury', async () => {
-    await this.FxNFTInstance.mint(this.account1)
-    const currentTokenId = await this.FxNFTInstance.currentTokenId()
-    const tokenId = currentTokenId.sub(toBN(1))
-    await reverts(this.FxNFTInstance.burn(tokenId, { from: this.account1 }))
+  it('Should be revert when trying to mint token by role not Treasury', async () => {
+    const hashedMetadata = web3.utils.soliditySha3(this.accountOwner)
+    await reverts(
+      this.FxNFTInstance.mint(this.account1, hashedMetadata, { from: this.account1 }),
+      'ControlTower: MODERATOR_ONLY',
+    )
+  })
+
+  it('Should be able to mint token with fee by any account', async () => {
+    const hashedMetadata = web3.utils.soliditySha3(this.accountOwner)
+    const balanceOfAccountBefore = await this.FxNFTInstance.balanceOf(this.account1)
+    const serviceFee = await this.FxNFTInstance.serviceFee()
+
+    await this.FxNFTInstance.mintWithFee(
+      this.account1,
+      hashedMetadata,
+      { from: this.account1, value: serviceFee },
+    )
+
+    const totalSupply = await this.FxNFTInstance.totalSupply()
+    const tokenId = totalSupply.sub(toBN(1))
+    const ownerOfTokenId = await this.FxNFTInstance.ownerOf(tokenId)
+    const hashedMetadataActually = await this.FxNFTInstance.hashedMetadata(tokenId)
+    const balanceOfAccountAfter = await this.FxNFTInstance.balanceOf(this.account1)
+
+    assert.equal(this.account1, ownerOfTokenId)
+    assert.equal(hashedMetadata, hashedMetadataActually)
+    assert.equal(balanceOfAccountAfter.sub(balanceOfAccountBefore).toString(), toBN(1).toString())
+  })
+
+  it('Should be revert when trying to mint token with fee by any account when fee not enough', async () => {
+    const hashedMetadata = web3.utils.soliditySha3(this.accountOwner)
+    const serviceFee = await this.FxNFTInstance.serviceFee()
+    await reverts(
+      this.FxNFTInstance.mintWithFee(
+        this.account1,
+        hashedMetadata,
+        { from: this.account1, value: serviceFee.sub(toBN(1)) },
+      ),
+      "FxNFT: INVALID_FEE",
+    )
   })
 
   it('Should be able to approve token to another account', async () => {
-    await this.FxNFTInstance.mint(this.account1)
-    const currentTokenId = await this.FxNFTInstance.currentTokenId()
-    const tokenId = currentTokenId.sub(toBN(1))
+    const hashedMetadata = web3.utils.soliditySha3(this.accountOwner)
+    await this.FxNFTInstance.mint(this.account1, hashedMetadata)
+    const totalSupply = await this.FxNFTInstance.totalSupply()
+    const tokenId = totalSupply.sub(toBN(1))
     await this.FxNFTInstance.approve(this.accountOwner, tokenId, { from: this.account1 })
     const approvedOfTokenIdAfter = await this.FxNFTInstance.getApproved(tokenId)
 

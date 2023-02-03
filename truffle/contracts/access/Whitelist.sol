@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+// FxEthers Contracts (last updated v1.0)
+
 pragma solidity ^0.8.0;
 
 abstract contract Whitelist {

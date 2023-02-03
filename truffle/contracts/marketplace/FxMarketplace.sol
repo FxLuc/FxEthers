@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
+// FxEthers Contracts (last updated v1.0)
+
 pragma solidity 0.8.17;
+
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -13,11 +16,11 @@ contract FxMarketplace is Pausable {
     struct ListedItem {
         IERC20 paymentToken;
         address seller;
-        address lastPurchaser;
+        address bidder;
         uint64 startTime;
         uint64 endTime;
         uint startPrice;
-        uint lastPrice;
+        uint currentPrice;
     }
 
     enum ItemState {
@@ -36,6 +39,8 @@ contract FxMarketplace is Pausable {
     mapping(address => bool) public isPaymentToken;
     mapping(address => mapping(uint => ListedItem)) public listed;
 
+    event AddPaymentToken(address token);
+    event CancelListed(address nft, uint nftId);
     event ListForSale(
         address nft,
         uint nftId,
@@ -52,16 +57,16 @@ contract FxMarketplace is Pausable {
         uint amountOffer,
         address from
     );
-    event TakeOwnItem(address nft, uint nftId, address to);
-    event CancelListed(address nft, uint nftId);
     event ReimbursementFeeChange(uint oldFee, uint newFee);
     event RescuesTokenStuck(address token, uint256 amount);
     event ServiceFeePercentChange(uint oldFee, uint newFee);
-    event AddPaymentToken(address token);
+    event TakeOwnItem(address nft, uint nftId, address to);
 
     constructor(ControlTower _controlTower, address _treasury) {
         controlTower = _controlTower;
         treasury = _treasury;
+        serviceFeePercent = 5; // 0.05%
+        reimbursementFeePercent = 500; // 5.00%
     }
 
     function listForSale(
@@ -81,7 +86,7 @@ contract FxMarketplace is Pausable {
         );
         require(
             _listedItem.endTime < block.timestamp &&
-                _listedItem.lastPurchaser == address(0),
+                _listedItem.bidder == address(0),
             "FxMarketplace: ITEM_LISTING"
         );
 
@@ -94,7 +99,7 @@ contract FxMarketplace is Pausable {
             startTime,
             endTime,
             startPrice,
-            startPrice // lastPrice
+            startPrice // currentPrice
         );
 
         emit ListForSale(
@@ -121,7 +126,7 @@ contract FxMarketplace is Pausable {
             "FxMarketplace: SALE_ENDED"
         );
         require(
-            _listedItem.lastPrice < amountOffer,
+            _listedItem.currentPrice < amountOffer,
             "FxMarketplace: OFFER_TOO_LOW"
         );
         require(
@@ -132,15 +137,15 @@ contract FxMarketplace is Pausable {
         address msgSender = _msgSender();
         paymentToken.safeTransferFrom(msgSender, address(this), amountOffer);
 
-        if (_listedItem.lastPurchaser != address(0)) {
+        if (_listedItem.bidder != address(0)) {
             paymentToken.safeTransfer(
-                _listedItem.lastPurchaser,
-                _listedItem.lastPrice
+                _listedItem.bidder,
+                _listedItem.currentPrice
             );
         }
 
-        listedItem.lastPrice = amountOffer;
-        listedItem.lastPurchaser = msgSender;
+        listedItem.currentPrice = amountOffer;
+        listedItem.bidder = msgSender;
 
         emit MakeAnOffer(
             nft,
@@ -158,16 +163,18 @@ contract FxMarketplace is Pausable {
             "FxMarketplace: ITEM_LISTING"
         );
         require(
-            listedItem.lastPurchaser == _msgSender(),
+            listedItem.bidder == _msgSender(),
             "FxMarketplace: INVALID_PURCHASER"
         );
 
-        uint serviceFee = (listedItem.lastPrice * serviceFeePercent) /
+        uint serviceFee = (listedItem.currentPrice * serviceFeePercent) /
             PERCENTAGE;
         listedItem.paymentToken.safeTransfer(
             listedItem.seller,
-            listedItem.lastPrice - serviceFee
+            listedItem.currentPrice - serviceFee
         );
+
+        listedItem.paymentToken.safeTransfer(treasury, serviceFee);
 
         IERC721(nft).safeTransferFrom(address(this), to, nftId);
 
@@ -191,12 +198,12 @@ contract FxMarketplace is Pausable {
         require(_listedItem.seller == sender, "FxMarketplace: INVALID_SELLER");
         require(
             _listedItem.endTime > block.timestamp ||
-                _listedItem.lastPurchaser == address(0),
+                _listedItem.bidder == address(0),
             "FxMarketplace: SALE_ENDED"
         );
 
-        if (_listedItem.lastPurchaser != address(0)) {
-            uint reimbursementFee = (_listedItem.lastPrice *
+        if (_listedItem.bidder != address(0)) {
+            uint reimbursementFee = (_listedItem.currentPrice *
                 reimbursementFeePercent) / PERCENTAGE;
             _listedItem.paymentToken.safeTransferFrom(
                 sender,
@@ -204,8 +211,8 @@ contract FxMarketplace is Pausable {
                 reimbursementFee
             );
             _listedItem.paymentToken.safeTransfer(
-                _listedItem.lastPurchaser,
-                _listedItem.lastPrice + reimbursementFee
+                _listedItem.bidder,
+                _listedItem.currentPrice + reimbursementFee
             );
         }
 

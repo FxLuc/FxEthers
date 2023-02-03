@@ -3,9 +3,7 @@
 
 const { assert } = require('chai')
 const { reverts } = require('truffle-assertions')
-
-const toBN = (number) => new web3.utils.toBN(number)
-const parseEther = (number) => new web3.utils.toWei(toBN(number), 'ether')
+const { toBN, parseEther } = require('../utils/helper')
 
 
 contract('FxTokenSale.test', async (accounts) => {
