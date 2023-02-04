@@ -1,2 +1,3 @@
-export { default as Home } from "./Home";
-export * from "./Errors";
+export * from "./home";
+export * from "./tokenSale";
+export * from "./errors";

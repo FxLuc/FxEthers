@@ -1,5 +1,6 @@
-import { useState, createContext, useEffect, useCallback, useContext } from 'react'
-import { ethers } from "ethers";
+import { useState, createContext, useEffect, useCallback, useContext, useMemo } from 'react'
+import { ethers } from "ethers"
+import { DEFAULT_CHAIN, RPC_URI } from '../utils'
 
 const EthContext = createContext()
 
@@ -8,40 +9,61 @@ function EthProvider({ children }) {
 
   const init = useCallback(
     async artifacts => {
-      let provider, signer, account, network, KycContract, FethTokenContract, TokenSaleContract
+      let provider, signer, network, account
+      let ControlTowerContract, FxNFTContract, FxEthersTokenContract, FxTokenSaleContract, FxMarketplaceContract
       try {
         if (window.ethereum) {
           provider = new ethers.providers.Web3Provider(window.ethereum)
           const accounts = await provider.send("eth_requestAccounts", [])
           account = accounts[0]
           signer = provider.getSigner()
-          network = await provider.getNetwork()
-          const kycAddress = artifacts.KYC.networks[network.chainId].address
-          KycContract = new ethers.Contract(kycAddress, artifacts.KYC.abi, signer)
-
-          const tokenAddress = artifacts.FethToken.networks[network.chainId].address
-          FethTokenContract = new ethers.Contract(tokenAddress, artifacts.FethToken.abi, signer)
-
-          const tokenSaleAddress = artifacts.TokenSale.networks[network.chainId].address
-          TokenSaleContract = new ethers.Contract(tokenSaleAddress, artifacts.TokenSale.abi, signer)
         } else {
-          provider = new ethers.providers.JsonRpcProvider(process.env.REACT_APP_INFURA_API_KEY)
-          network = await provider.getNetwork()
-
-          const kycAddress = artifacts.KYC.networks[network.chainId].address
-          KycContract = new ethers.Contract(kycAddress, artifacts.KYC.abi, provider)
-
-          const tokenAddress = artifacts.FethToken.networks[network.chainId].address
-          FethTokenContract = new ethers.Contract(tokenAddress, artifacts.FethToken.abi, provider)
-
-          const tokenSaleAddress = artifacts.TokenSale.networks[network.chainId].address
-          TokenSaleContract = new ethers.Contract(tokenSaleAddress, artifacts.TokenSale.abi, provider)
+          provider = new ethers.providers.JsonRpcProvider(RPC_URI)
         }
+        network = await provider.detectNetwork()
+
+        const signerContract = signer || provider
+        let networkChainId = network.chainId
+        let contractAddress = artifacts.ControlTower.networks[networkChainId]?.address
+        if (!contractAddress) networkChainId = DEFAULT_CHAIN
+
+        contractAddress = artifacts.ControlTower.networks[networkChainId].address
+        ControlTowerContract = new ethers.Contract(contractAddress, artifacts.ControlTower.abi, signerContract)
+
+        contractAddress = artifacts.FxNFT.networks[networkChainId].address
+        FxNFTContract = new ethers.Contract(contractAddress, artifacts.FxNFT.abi, signerContract)
+
+        contractAddress = artifacts.FxEthersToken.networks[networkChainId].address
+        FxEthersTokenContract = new ethers.Contract(contractAddress, artifacts.FxEthersToken.abi, signerContract)
+
+        contractAddress = artifacts.FxTokenSale.networks[networkChainId].address
+        FxTokenSaleContract = new ethers.Contract(contractAddress, artifacts.FxTokenSale.abi, signerContract)
+
+        contractAddress = artifacts.FxMarketplace.networks[networkChainId].address
+        FxMarketplaceContract = new ethers.Contract(contractAddress, artifacts.FxMarketplace.abi, signerContract)
+
+        // eslint-disable-next-line eqeqeq
+        if (network.chainId != DEFAULT_CHAIN) console.error(
+          'UNSUPPORTED NETWORK CHAIN ID: ',
+          network.chainId,
+          '\nREVERT TO AVALANCHE FUJI TESTNET DEFAULT CHAIN ID:',
+          Number(DEFAULT_CHAIN)
+        )
       } catch (err) {
-        if (network.chainId !== process.env.REACT_APP_DEFAULT_CHAIN) console.error('UNSUPPORTED NETWORK CHAIN ID: ', network.chainId)
         console.error(err)
       }
-      setEth({ artifacts, provider, signer, account, network, KycContract, FethTokenContract, TokenSaleContract })
+      setEth({
+        artifacts,
+        provider,
+        account,
+        signer,
+        network,
+        ControlTowerContract,
+        FxNFTContract,
+        FxEthersTokenContract,
+        FxTokenSaleContract,
+        FxMarketplaceContract
+      })
     }, [])
 
   // useEffect(() => {
@@ -53,17 +75,19 @@ function EthProvider({ children }) {
     const tryInit = async () => {
       try {
         const artifacts = {
-          KYC: require('../contracts/KYC.json'),
-          FethToken: require('../contracts/FETHToken.json'),
-          TokenSale: require('../contracts/TokenSale.json'),
+          ControlTower: require('../contracts/ControlTower.json'),
+          FxNFT: require('../contracts/FxNFT.json'),
+          FxEthersToken: require('../contracts/FxEthersToken.json'),
+          FxTokenSale: require('../contracts/FxTokenSale.json'),
+          FxMarketplace: require('../contracts/FxMarketplace.json'),
         }
-        init(artifacts);
+        init(artifacts)
       } catch (err) {
-        console.error(err);
+        console.error(err)
       }
-    };
-    tryInit();
-  }, [init]);
+    }
+    tryInit()
+  }, [init])
 
   useEffect(() => {
     if (window.ethereum) {
@@ -74,17 +98,19 @@ function EthProvider({ children }) {
         events.forEach(e => window.ethereum.removeListener(e, handleChange))
       }
     }
-  }, [init, eth.artifacts, eth.accounts])
+  }, [init, eth.artifacts, eth.account])
+
+  const ethContext = useMemo(() => ({ eth, setEth }), [eth])
 
   return (
-    <EthContext.Provider value={{ eth, setEth }}>
+    <EthContext.Provider value={ethContext}>
       {children}
     </EthContext.Provider>
   )
 }
 
 function useEth() {
-  return useContext(EthContext);
+  return useContext(EthContext)
 }
 
 export {

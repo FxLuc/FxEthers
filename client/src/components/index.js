@@ -1,7 +1,3 @@
-import { ToastAutoHide } from "./Toat"
-import { Footer } from "./Footer"
-
-export {
-    ToastAutoHide,
-    Footer,
-}
+export * from "./footer"
+export * from "./toast"
+export * from "./button"
