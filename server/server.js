@@ -14,6 +14,7 @@ if (process.env.NODE_ENV === "production") {
 
 // mongoose connect
 const mongoose = require('mongoose')
+mongoose.set('strictQuery', false)
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(error => console.log(error))
@@ -27,6 +28,8 @@ app.use(bodyParser.json())
 // router
 require('./routes/index')(app)
 app.use(express.static('public'))
+// app.use('metadata/pictures/file', express.static('public/pictures/items'))
+// app.use('account/avatars', express.static('public/pictures/avatars'))
 
 // catch 404 and forward to error handler
 app.use((_req, _res, next) => {

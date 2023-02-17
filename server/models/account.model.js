@@ -1,5 +1,5 @@
 const mongoose = require("mongoose")
-const defaultPicture = 'default.jpg'
+const { DEFAULT_PICTURE_DB } = require("../configs/constants")
 
 const accountSchema = new mongoose.Schema({
   _id: {
@@ -16,21 +16,22 @@ const accountSchema = new mongoose.Schema({
     type: String,
     maxlength: 128,
   },
-  externalLink: {
+  external_url: {
     type: String,
     maxlength: 64,
   },
   avatar: {
     type: String,
-    default: defaultPicture,
+    default: DEFAULT_PICTURE_DB,
   },
-  avatar_thumbnail: {
+  avatar_thumb: {
     type: String,
+    default: DEFAULT_PICTURE_DB,
   },
-  cover_photo: {
-    type: String,
-    default: defaultPicture,
-  },
+  // cover_photo: {
+  //   type: String,
+  //   default: DEFAULT_PICTURE_DB,
+  // },
 }, { timestamps: true })
 
 module.exports = mongoose.model("Account", accountSchema)
