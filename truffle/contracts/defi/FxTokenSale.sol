@@ -65,7 +65,7 @@ contract FxTokenSale is Pausable, ReentrancyGuard {
     }
 
     /**
-     * @dev fallback function ***DO NOT OVERRIDE***
+     * @dev fallback function
      * Note that other contracts will transfer funds with a base gas stipend
      * of 2300, which is not enough to call buyTokens. Consider calling
      * buyTokens directly when purchasing tokens from a contract.
@@ -86,7 +86,7 @@ contract FxTokenSale is Pausable, ReentrancyGuard {
     }
 
     /**
-     * @dev low level token purchase ***DO NOT OVERRIDE***
+     * @dev low level token purchase
      * This function has a non-reentrancy guard, so it shouldn't be called by
      * another `nonReentrant` function.
      * @param beneficiary Recipient of the token purchase
